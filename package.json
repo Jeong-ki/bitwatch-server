@@ -1,5 +1,5 @@
 {
-  "name": "express-kenx-boilerplate",
+  "name": "dot-calendar-server",
   "version": "1.0.0",
   "main": "src/index.ts",
   "license": "MIT",
@@ -53,6 +53,6 @@
     "webpack-node-externals": "^3.0.0"
   },
   "engines": {
-    "node": "21.4.x"
+    "node": "20.11.x"
   }
 }

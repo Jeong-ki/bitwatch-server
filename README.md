@@ -2,7 +2,7 @@
 Express, Knex (+ Docker, PostgreSQL)를 사용하여 기본 백엔드 구조 세팅 및 테스트 코드 작성
 
 ## Version
-node: 21.4.0  
+node: 20.11.0  
 pnpm: 9.5.0  
 docker: 27.0.3  
 express: 4.18.2  
