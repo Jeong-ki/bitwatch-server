@@ -1,5 +1,5 @@
 {
-  "name": "dot-calendar-server",
+  "name": "watchbit-server",
   "version": "1.0.0",
   "main": "src/index.ts",
   "license": "MIT",
