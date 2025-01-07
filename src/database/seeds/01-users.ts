@@ -15,8 +15,7 @@ exports.seed = async function (knex: Knex): Promise<void> {
     .map((_, index) => ({
       id: index + 1,
       email: faker.internet.email().toLowerCase(),
-      first_name: faker.person.firstName(),
-      last_name: faker.person.lastName(),
+      nick_name: faker.person.fullName(),
       role: 'user',
     }));
 
