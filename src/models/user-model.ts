@@ -14,7 +14,7 @@ export type DefaultUserData = {
 export type UserType = {
   id: number;
   email: string;
-  nick_name: string;
+  nickname: string;
   password: string;
   role: Role;
 };
@@ -43,5 +43,14 @@ export class UserModel extends Model {
       },
       UserType
     >({ email });
+  }
+
+  public static findByNickname(nickname: string): Promise<UserType> {
+    return this.findBy<
+      {
+        nickname: string;
+      },
+      UserType
+    >({ nickname });
   }
 }

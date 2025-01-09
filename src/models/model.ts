@@ -31,6 +31,17 @@ export class Model {
     return result;
   }
 
+  public static async updateBy<Condition, Payload, Result>(
+    condition: Condition,
+    data: Payload
+  ): Promise<Result & DateType> {
+    const [result] = await this.table
+      .where(condition as string)
+      .update(data)
+      .returning('*');
+    return result;
+  }
+
   public static async delete(id: string): Promise<number> {
     return this.table.where({ id }).del();
   }
