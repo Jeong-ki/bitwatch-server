@@ -1,5 +1,4 @@
 import { Model } from './model';
-import bcrypt from 'bcrypt';
 import type { DateType } from './model';
 
 export enum Role {
@@ -27,12 +26,9 @@ export class UserModel extends Model {
   static tableName = 'users';
 
   public static async create<Payload>(data: Payload): Promise<UserType & DateType> {
-    const hashedPassword = await bcrypt.hash((data as any).password, 10);
-
     return super.insert<Payload & DefaultUserData, UserType>({
       ...data,
       ...defaultUserData,
-      password: hashedPassword,
     });
   }
 

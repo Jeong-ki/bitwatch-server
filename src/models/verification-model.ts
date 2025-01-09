@@ -1,7 +1,7 @@
 import { Model } from './model';
 
 export type VerificationType = {
-  id: number;
+  id: string;
   email: string;
   verification_code: string;
   expires_at: Date;
@@ -17,6 +17,13 @@ export class VerificationModel extends Model {
     code: string,
     expiresAt: Date
   ): Promise<VerificationType> {
+    const existingVerification = await this.findByEmail(email);
+
+    // 기존 인증번호 삭제
+    if (existingVerification) {
+      await this.delete(existingVerification.id);
+    }
+
     return this.insert({
       email,
       verification_code: code,

@@ -132,6 +132,7 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
+
     if (!isPasswordValid) {
       return res.status(401).json({
         message: '이메일 또는 비밀번호가 올바르지 않습니다.',
