@@ -5,9 +5,9 @@ import userRouter from './user-router';
 const router = Router();
 
 // -- Auth
-router.use('/users', userRouter);
+router.use('/user', userRouter);
 
 // -- Test
-router.use('/posts', postRouter);
+router.use('/post', postRouter);
 
 export default router;

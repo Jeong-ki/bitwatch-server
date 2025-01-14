@@ -5,13 +5,12 @@ import jwt from 'jsonwebtoken';
 import type { Request, Response } from 'express';
 import { VerificationModel } from 'src/models/verification-model';
 import { sendEmail } from 'src/middleware/verification-email';
+import { authenticate } from 'src/middleware/authenticate';
 
 const userRouter = Router();
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'access_secret_key';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh_secret_key';
-
-const refreshTokens: string[] = [];
 
 userRouter.post('/email-verification', async (req, res) => {
   const { email } = req.body;
@@ -134,9 +133,9 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({
+      return res.status(400).json({
         message: '이메일 또는 비밀번호가 올바르지 않습니다.',
-        status: 401,
+        status: 400,
       });
     }
 
@@ -144,24 +143,32 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       ACCESS_TOKEN_SECRET,
-      { expiresIn: '15m' } // 15분 만료
+      { expiresIn: '1h' } // 15분 만료
     );
 
     // 리프레시 토큰 생성
     const refreshToken = jwt.sign(
       { id: user.id, email: user.email },
       REFRESH_TOKEN_SECRET,
-      { expiresIn: '7d' } // 7일 만료
+      { expiresIn: '30d' } // 7일 만료
     );
 
-    // 리프레시 토큰 저장 (DB 또는 메모리에 저장)
-    refreshTokens.push(refreshToken);
+    // 리프레시 토큰을 HttpOnly 쿠키로 설정
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true, // 클라이언트 스크립트 접근 차단
+      secure: process.env.NODE_ENV === 'production', // HTTPS에서만 전송
+      sameSite: 'strict', // 동일 출처에서만 전송
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30일 (밀리초 단위)
+    });
 
     res.json({
       message: '로그인에 성공했습니다.',
       status: 200,
-      accessToken,
-      refreshToken,
+      data: {
+        email: user.email,
+        nickname: user.nickname,
+        accessToken,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -171,7 +178,61 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
   }
 });
 
-userRouter.get('/', async (req: Request, res: Response) => {
+userRouter.post('/signout', async (req: Request, res: Response) => {
+  try {
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    res.status(200).json({
+      message: '로그아웃되었습니다.',
+      status: 200,
+    });
+  } catch (error) {
+    console.error('로그아웃 처리 중 오류 발생:', error);
+    res.status(500).json({
+      message: '서버 내부 오류가 발생했습니다.',
+      status: 500,
+    });
+  }
+});
+
+userRouter.post('/refresh', async (req: Request, res: Response) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        message: '리프레시 토큰이 제공되지 않았습니다.',
+        status: 401,
+      });
+    }
+
+    const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as { id: string; email: string };
+
+    const newAccessToken = jwt.sign({ id: decoded.id, email: decoded.email }, ACCESS_TOKEN_SECRET, {
+      expiresIn: '1h',
+    });
+
+    res.status(200).json({
+      message: '새로운 액세스 토큰이 발급되었습니다.',
+      status: 200,
+      data: {
+        accessToken: newAccessToken,
+      },
+    });
+  } catch (error) {
+    console.error('리프레시 토큰 검증 실패:', error);
+    res.status(403).json({
+      message: '유효하지 않거나 만료된 리프레시 토큰입니다.',
+      status: 403,
+    });
+  }
+});
+
+userRouter.get('/all', authenticate, async (req: Request, res: Response) => {
   try {
     res.json({
       data: await UserModel.all(),
