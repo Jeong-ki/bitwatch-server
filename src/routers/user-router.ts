@@ -23,15 +23,13 @@ userRouter.post('/email-verification', async (req, res) => {
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5분 후 만료
 
   try {
-    // 기존 인증번호 삭제 또는 업데이트
     await VerificationModel.createVerification(email, verificationCode, expiresAt);
 
-    // 이메일 전송 로직
     await sendEmail(email, `인증번호: ${verificationCode}`);
 
     res.status(200).json({ message: '인증번호가 이메일로 전송되었습니다.', status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error('email-verification', error);
     res.status(500).json({ message: '서버 오류가 발생했습니다.', status: 500 });
   }
 });
@@ -102,7 +100,7 @@ userRouter.post('/signup', async (req: Request, res: Response) => {
       status: 201,
     });
   } catch (error) {
-    console.error(error);
+    console.error('signup', error);
     res.status(500).json({
       message: '서버 내부 오류가 발생했습니다.',
       status: 500,
@@ -143,21 +141,19 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       ACCESS_TOKEN_SECRET,
-      { expiresIn: '1h' } // 15분 만료
+      { expiresIn: '1h' }
     );
 
     // 리프레시 토큰 생성
-    const refreshToken = jwt.sign(
-      { id: user.id, email: user.email },
-      REFRESH_TOKEN_SECRET,
-      { expiresIn: '30d' } // 7일 만료
-    );
+    const refreshToken = jwt.sign({ id: user.id, email: user.email }, REFRESH_TOKEN_SECRET, {
+      expiresIn: '30d',
+    });
 
     // 리프레시 토큰을 HttpOnly 쿠키로 설정
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true, // 클라이언트 스크립트 접근 차단
       secure: process.env.NODE_ENV === 'production', // HTTPS에서만 전송
-      sameSite: 'strict', // 동일 출처에서만 전송
+      sameSite: 'none', // strict: 동일 출처에서만 전송
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30일 (밀리초 단위)
     });
 
@@ -171,6 +167,7 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
+    console.error('signin', error);
     res.status(500).json({
       message: '서버 내부 오류가 발생했습니다.',
       status: 500,
@@ -183,7 +180,7 @@ userRouter.post('/signout', async (req: Request, res: Response) => {
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'none',
     });
 
     res.status(200).json({
@@ -191,7 +188,7 @@ userRouter.post('/signout', async (req: Request, res: Response) => {
       status: 200,
     });
   } catch (error) {
-    console.error('로그아웃 처리 중 오류 발생:', error);
+    console.error('signout', error);
     res.status(500).json({
       message: '서버 내부 오류가 발생했습니다.',
       status: 500,
@@ -212,6 +209,20 @@ userRouter.post('/refresh', async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as { id: string; email: string };
 
+    // 리프레시 토큰 재생성
+    const newRefreshToken = jwt.sign(
+      { id: decoded.id, email: decoded.email },
+      REFRESH_TOKEN_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
     const newAccessToken = jwt.sign({ id: decoded.id, email: decoded.email }, ACCESS_TOKEN_SECRET, {
       expiresIn: '1h',
     });
@@ -224,10 +235,39 @@ userRouter.post('/refresh', async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('리프레시 토큰 검증 실패:', error);
+    console.error('refresh', error);
     res.status(403).json({
       message: '유효하지 않거나 만료된 리프레시 토큰입니다.',
       status: 403,
+    });
+  }
+});
+
+userRouter.post('/reissue-user', authenticate, async (req: Request, res: Response) => {
+  try {
+    const email = req.user?.email;
+    if (!email) {
+      return res.status(404).json({
+        status: 404,
+        message: '유저 정보를 찾을 수 없습니다.',
+      });
+    }
+
+    const user = await UserModel.findByEmail(email);
+
+    res.json({
+      message: '유저 정보가 재발급되었습니다.',
+      status: 200,
+      data: {
+        email: user.email,
+        nickname: user.nickname,
+      },
+    });
+  } catch (error) {
+    console.error('reissue-user', error);
+    res.status(401).json({
+      status: 401,
+      message: '잘못된 토큰입니다.',
     });
   }
 });
@@ -238,6 +278,7 @@ userRouter.get('/all', authenticate, async (req: Request, res: Response) => {
       data: await UserModel.all(),
     });
   } catch (error) {
+    console.error('all', error);
     res.status(500).json({
       message: '서버 내부 오류가 발생했습니다.',
       status: 500,
