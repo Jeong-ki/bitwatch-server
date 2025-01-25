@@ -1,5 +1,5 @@
-require('dotenv').config();
-require('ts-node/register');
+import 'dotenv/config';
+import 'ts-node/register';
 import type { Knex } from 'knex';
 
 const environments: string[] = ['development', 'staging', 'production'];

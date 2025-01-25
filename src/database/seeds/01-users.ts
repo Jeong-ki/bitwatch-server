@@ -1,4 +1,4 @@
-require('dotenv').config();
+import 'dotenv/config';
 import * as process from 'process';
 import bcrypt from 'bcrypt';
 import { faker } from '@faker-js/faker';

@@ -1,14 +1,15 @@
 import webpackNodeExternals from 'webpack-node-externals';
 import path from 'path';
+import 'dotenv/config';
 
-module.exports = {
+export default {
   mode: process.env.NODE_ENV || 'development',
   target: 'node',
   entry: './src/index.ts',
   watch: process.env.NODE_ENV === 'development',
   output: {
     filename: 'bundle.js',
-    path: __dirname + '/dist',
+    path: path.resolve(__dirname, 'dist'),
   },
   module: {
     rules: [
