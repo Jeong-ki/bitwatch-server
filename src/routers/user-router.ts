@@ -96,7 +96,7 @@ userRouter.post('/signup', async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      message: '회원가입이 성공적으로 완료되었습니다.',
+      message: '회원가입이 완료되었습니다.',
       status: 201,
     });
   } catch (error) {
@@ -137,23 +137,20 @@ userRouter.post('/signin', async (req: Request, res: Response) => {
       });
     }
 
-    // 액세스 토큰 생성
-    const accessToken = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      ACCESS_TOKEN_SECRET,
-      { expiresIn: '1h' }
-    );
+    const accessToken = jwt.sign({ id: user.id, email: user.email }, ACCESS_TOKEN_SECRET, {
+      expiresIn: '1h',
+    });
 
-    // 리프레시 토큰 생성
     const refreshToken = jwt.sign({ id: user.id, email: user.email }, REFRESH_TOKEN_SECRET, {
       expiresIn: '30d',
     });
 
-    // 리프레시 토큰을 HttpOnly 쿠키로 설정
+    const isProduction = process.env.NODE_ENV === 'production';
+
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true, // 클라이언트 스크립트 접근 차단
-      secure: process.env.NODE_ENV === 'production', // HTTPS에서만 전송
-      sameSite: 'none', // strict: 동일 출처에서만 전송
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30일 (밀리초 단위)
     });
 
@@ -209,18 +206,19 @@ userRouter.post('/refresh', async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) as { id: string; email: string };
 
-    // 리프레시 토큰 재생성
     const newRefreshToken = jwt.sign(
       { id: decoded.id, email: decoded.email },
       REFRESH_TOKEN_SECRET,
       { expiresIn: '30d' }
     );
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30일 (밀리초 단위)
     });
 
     const newAccessToken = jwt.sign({ id: decoded.id, email: decoded.email }, ACCESS_TOKEN_SECRET, {
